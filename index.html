@@ -74,6 +74,9 @@ a{color:var(--vi);word-break:break-all}
 .deadline-badge.yellow{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
 .deadline-badge.red{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
 
+/* NEWバッジ */
+.new-badge{display:inline-flex;align-items:center;justify-content:center;background:var(--pk);color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;line-height:1;letter-spacing:0.5px;flex-shrink:0}
+
 /* ポップアップ用閉じるボタン */
 .modal-close-btn{position:absolute;top:12px;right:14px;font-size:22px;color:var(--mut);cursor:pointer;padding:4px 8px;line-height:1}
 
@@ -94,7 +97,7 @@ a{color:var(--vi);word-break:break-all}
 
 .row{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
 .grow{flex:1;min-width:0}
-h3{margin:0;font-size:19px;font-weight:800;line-height:1.3}
+h3{margin:0;font-size:19px;font-weight:800;line-height:1.3;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .mut{color:var(--mut);margin:2px 0 0;font-size:14px}
 .th{width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line);flex:none}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
@@ -164,6 +167,15 @@ const link=s=>esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blan
 const p2=n=>String(n).padStart(2,'0');
 const getTodayStr=()=>{const t=new Date();return t.getFullYear()+'-'+p2(t.getMonth()+1)+'-'+p2(t.getDate())};
 const isPastDate=d=>d && d < getTodayStr();
+
+// 作成日時から3日（72時間）以内かどうか判定する関数
+const isNewEvent=createdAt=>{
+ if(!createdAt) return false;
+ const created = new Date(createdAt).getTime();
+ const now = new Date().getTime();
+ const diffHours = (now - created) / (1000 * 60 * 60);
+ return diffHours >= 0 && diffHours <= 72; // 72時間以内ならtrue
+};
 
 const fd=d=>{if(!d)return'未定';const x=new Date(d+'T00:00:00');return x.getFullYear()+'年'+(x.getMonth()+1)+'月'+x.getDate()+'日('+'日月火水木金土'[x.getDay()]+')'};
 const fdt=t=>{if(!t)return'—';const x=new Date(t);return (x.getMonth()+1)+'/'+x.getDate()+' '+p2(x.getHours())+':'+p2(x.getMinutes())};
@@ -500,8 +512,9 @@ function card(l){
  
  const alertInfo = getDeadlineAlert(l.apply_end);
  const deadlineBadgeHtml = alertInfo ? '<div class="deadline-badge '+alertInfo.color+'">'+alertInfo.text+'</div>' : '';
+ const newBadgeHtml = isNewEvent(l.created_at) ? '<span class="new-badge">NEW</span>' : '';
  
- return '<div class="card'+(past?' past':'')+'" onclick="detail(\''+l.id+'\')"><div class="row"><div class="grow"><h3>'+esc(l.title)+'</h3><p class="mut">📍 '+esc(l.venue||'会場未定')+'</p></div>'+(safe(l.image_url)?'<img class="th" src="'+safe(l.image_url)+'" alt="">':'')+'</div>'
+ return '<div class="card'+(past?' past':'')+'" onclick="detail(\''+l.id+'\')"><div class="row"><div class="grow"><h3>'+esc(l.title)+newBadgeHtml+'</h3><p class="mut">📍 '+esc(l.venue||'会場未定')+'</p></div>'+(safe(l.image_url)?'<img class="th" src="'+safe(l.image_url)+'" alt="">':'')+'</div>'
  +'<div class="grid">'
  +'<div class="b pk"><small>開催日</small><b>'+fd(l.live_date)+'</b></div><div class="b vi"><small>チケット種別</small><b>'+esc(l.ticket_type||'—')+'</b></div><div class="b wide"><small>申込受付期間</small><b>'+fdt(l.apply_start)+' 〜 '+fdt(l.apply_end)+'</b>'+deadlineBadgeHtml+'</div><div class="b"><small>当落発表</small><b>'+fd(l.result_date)+'</b></div><div class="b"><small>発券開始</small><b>'+fd(l.issue_date)+'</b></div>'
  +'</div>'
@@ -521,8 +534,9 @@ function detail(id){
 
  const alertInfo = getDeadlineAlert(l.apply_end);
  const deadlineBadgeHtml = alertInfo ? '<div class="deadline-badge '+alertInfo.color+'" style="margin-top:6px;">'+alertInfo.text+'</div>' : '';
+ const newBadgeHtml = isNewEvent(l.created_at) ? '<span class="new-badge">NEW</span>' : '';
 
- openM((safe(l.image_url)?'<img class="big" src="'+safe(l.image_url)+'" alt="">':'')+'<h3 style="font-size:22px">'+esc(l.title)+'</h3>'
+ openM((safe(l.image_url)?'<img class="big" src="'+safe(l.image_url)+'" alt="">':'')+'<h3 style="font-size:22px">'+esc(l.title)+newBadgeHtml+'</h3>'
  +(l.venue?'<p class="mut">📍 '+(safe(l.map_url)?'<a href="'+safe(l.map_url)+'" target="_blank" rel="noopener">'+esc(l.venue)+'</a>':esc(l.venue))+'</p>':'')
  +'<div class="sec" style="background:var(--pk2)"><h4>イベント情報</h4><p>開催日: <b>'+fd(l.live_date)+'</b></p><p>OPEN '+esc(l.open_time||'—')+' / START '+esc(l.start_time||'—')+'</p><p>ジャンル: '+(l.genre==='comedy'?'お笑い':'音楽')+' / 形式: '+esc(l.format||'—')+'</p></div>'
  +'<div class="sec" style="background:var(--vi2)"><h4>チケット情報</h4><p>種別: '+esc(l.ticket_type||'—')+'</p><p>申込受付: '+fdt(l.apply_start)+' 〜 '+fdt(l.apply_end)+'</p>'+deadlineBadgeHtml+'<p style="margin-top:6px;">当落発表: '+fd(l.result_date)+'</p><p>発券開始: '+fd(l.issue_date)+'</p></div>'
