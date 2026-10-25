@@ -86,7 +86,8 @@ a{color:var(--vi);word-break:break-all}
 .swipe-action{position:absolute;right:0;top:0;bottom:0;width:100px;background:#95a5a6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;z-index:1;cursor:pointer}
 .swipe-wrap.is-hid .swipe-action{background:var(--vi)}
 
-.card{position:relative;z-index:2;background:#fff;border-radius:18px;padding:16px;margin-bottom:0;box-shadow:0 2px 14px rgba(70,40,120,.07);transition:transform 0.25s ease}
+.card{position:relative;z-index:2;background:#fff;border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 14px rgba(70,40,120,.07);transition:transform 0.25s ease}
+.swipe-wrap .card{margin-bottom:0}
 .card.swiped{transform:translateX(-100px)}
 .card.hid{background:#f0edf6;color:#8e83a6}
 .card.hid .mut{color:#aba2be}
@@ -157,7 +158,7 @@ label{display:block;font-size:12px;color:var(--mut);margin:12px 0 4px}
 <div id="toast"></div>
 <script>
 const sb = supabase.createClient('https://njzdxjkclaonvtjirrgp.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qemR4amtjbGFvbnZ0amlycmdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MzY2NjQsImV4cCI6MjEwODAxMjY2NH0.KkV71ATa8YGN33XJgLtmzJTlsHQkmhoqEAg3bO-wX9U');
-let calY=new Date().getFullYear(),calM=new Date().getMonth(),selDate=null,siteSettingsMap={},me=null,prof=null,lives=[],ints=[],profs={},nums={},announcements=[],tab='s',sort='d',showHid=false,authMode='in',tx=0,isMoved=false,activeSwipeId=null,currentGenre='live',selYear='ALL';
+let calY=new Date().getFullYear(),calM=new Date().getMonth(),selDate=null,siteSettingsMap={},me=null,prof=null,lives=[],ints=[],profs={},nums={},announcements=[],tab='s',sort='d',showHid=false,authMode='in',tx=0,isMoved=false,activeSwipeId=null,currentGenre='live',selYear='ALL',popupsDone=false;
 let currentTouchTarget=null;
 
 const $=s=>document.querySelector(s);
@@ -212,17 +213,19 @@ function getDeadlineAlert(applyEnd){
 }
 
 // 初回起動時のポップアップチェック（お知らせ ＆ 締切アラート）
+// 表示した時点で「見た」と記録するので、背景をタップして閉じても同じ内容は再表示されない
 function checkInitialPopups(){
  // 1. お知らせの初回通知チェック
  if(announcements.length > 0){
   const latestInfo = announcements[0]; // 作成日時降順で一番新しいもの
   const storageKey = 'koyake_announcement_seen_' + latestInfo.id;
   if(!localStorage.getItem(storageKey)){
+   localStorage.setItem(storageKey, 'true');
    openM(
-    '<span class="modal-close-btn" onclick="dismissInfoAlert(\''+storageKey+'\')">&times;</span>' +
+    '<span class="modal-close-btn" onclick="dismissInfoAlert()">&times;</span>' +
     '<h3 style="font-size:20px; color:var(--vi); margin-bottom:12px;">📢お知らせ📢</h3>' +
     '<div class="sec" style="background:var(--vi2); white-space:pre-wrap; font-size:15px; line-height:1.6;">' + link(latestInfo.body) + '</div>' +
-    '<button class="btn p" onclick="dismissInfoAlert(\''+storageKey+'\')">閉じる</button>'
+    '<button class="btn p" onclick="dismissInfoAlert()">閉じる</button>'
    );
    return; // お知らせが表示された場合は締切アラートは次回へ
   }
@@ -232,8 +235,7 @@ function checkInitialPopups(){
  checkDailyDeadlineAlert();
 }
 
-function dismissInfoAlert(storageKey){
- localStorage.setItem(storageKey, 'true');
+function dismissInfoAlert(){
  closeM();
  setTimeout(checkDailyDeadlineAlert, 300);
 }
@@ -250,12 +252,13 @@ function checkDailyDeadlineAlert(){
 
  if(urgentLives.length === 0) return;
 
+ localStorage.setItem(storageKey, 'true');
  const target = urgentLives.sort((a,b)=>new Date(a.apply_end)-new Date(b.apply_end))[0];
  const alertInfo = getDeadlineAlert(target.apply_end);
  const badgeClass = alertInfo.color === 'red' ? 'red' : 'yellow';
 
  openM(
-  '<span class="modal-close-btn" onclick="dismissDailyAlert(\''+storageKey+'\')">&times;</span>' +
+  '<span class="modal-close-btn" onclick="closeM()">&times;</span>' +
   '<h3 style="font-size:20px; color:var(--pk); margin-bottom:8px;">⚠️ 申込締切が迫っています！</h3>' +
   '<p class="mut">本日チェックすべき締切間近のイベントがあります。</p>' +
   '<div class="sec" style="background:var(--pk2)">' +
@@ -263,14 +266,9 @@ function checkDailyDeadlineAlert(){
   '<p>申込締切: <b>' + fdt(target.apply_end) + '</b></p>' +
   '<div class="deadline-badge ' + badgeClass + '">' + alertInfo.text + '</div>' +
   '</div>' +
-  '<button class="btn p" onclick="dismissDailyAlert(\''+storageKey+'\'); detail(\''+target.id+'\')">詳細を確認する</button>' +
-  '<button class="btn" onclick="dismissDailyAlert(\''+storageKey+'\')">閉じる（今日はもう表示しない）</button>'
+  '<button class="btn p" onclick="detail(\''+target.id+'\')">詳細を確認する</button>' +
+  '<button class="btn" onclick="closeM()">閉じる（今日はもう表示しない）</button>'
  );
-}
-
-function dismissDailyAlert(storageKey){
- localStorage.setItem(storageKey, 'true');
- closeM();
 }
 
 function authView(){
@@ -289,10 +287,10 @@ async function doAuth(){
  if(authMode==='up'){
   const code=$('#code').value.trim();
   if(!code)return toast('招待コードを入力してください');
-  const check=await sb.from('invitation_codes').select('code').eq('code',code).maybeSingle();
-  if(!check.data)return toast('招待コードが違います');
   const username=$('#un').value.trim()||'名無し';
-  r=await sb.auth.signUp({email,password,options:{data:{username,icon_url:null}}});
+  // 招待コードの確認はデータベース側で行う（合っていないと登録が失敗する）
+  r=await sb.auth.signUp({email,password,options:{data:{username,invite_code:code}}});
+  if(r.error&&/database error/i.test(r.error.message))return toast('登録に失敗しました。招待コードを確認してください');
   if(!r.error&&!r.data.session)return toast('確認メールを送信しました。メール内のリンクを開いてください');
  }else r=await sb.auth.signInWithPassword({email,password});
  if(r.error)toast('失敗: '+r.error.message);
@@ -317,7 +315,8 @@ async function load(){
  (q[4].data||[]).forEach(s=>{ siteSettingsMap[s.genre||'live'] = s; });
  render();
 
- setTimeout(checkInitialPopups, 300);
+ // ポップアップの判定は起動後の最初の1回だけ
+ if(!popupsDone){popupsDone=true;setTimeout(checkInitialPopups, 300);}
 }
 function getActiveSite(){
  return siteSettingsMap[currentGenre] || {title:'', header_url:''};
@@ -514,7 +513,7 @@ function card(l){
  const deadlineBadgeHtml = alertInfo ? '<div class="deadline-badge '+alertInfo.color+'">'+alertInfo.text+'</div>' : '';
  const newBadgeHtml = isNewEvent(l.created_at) ? '<span class="new-badge">NEW</span>' : '';
  
- return '<div class="card'+(past?' past':'')+'" onclick="detail(\''+l.id+'\')"><div class="row"><div class="grow"><h3>'+esc(l.title)+newBadgeHtml+'</h3><p class="mut">📍 '+esc(l.venue||'会場未定')+'</p></div>'+(safe(l.image_url)?'<img class="th" src="'+safe(l.image_url)+'" alt="">':'')+'</div>'
+ return '<div class="card'+(past?' past':'')+'" onclick="detail(\''+l.id+'\')"><div class="row"><div class="grow"><h3>'+newBadgeHtml+esc(l.title)+'</h3><p class="mut">📍 '+esc(l.venue||'会場未定')+'</p></div>'+(safe(l.image_url)?'<img class="th" src="'+safe(l.image_url)+'" alt="">':'')+'</div>'
  +'<div class="grid">'
  +'<div class="b pk"><small>開催日</small><b>'+fd(l.live_date)+'</b></div><div class="b vi"><small>チケット種別</small><b>'+esc(l.ticket_type||'—')+'</b></div><div class="b wide"><small>申込受付期間</small><b>'+fdt(l.apply_start)+' 〜 '+fdt(l.apply_end)+'</b>'+deadlineBadgeHtml+'</div><div class="b"><small>当落発表</small><b>'+fd(l.result_date)+'</b></div><div class="b"><small>発券開始</small><b>'+fd(l.issue_date)+'</b></div>'
  +'</div>'
@@ -536,7 +535,7 @@ function detail(id){
  const deadlineBadgeHtml = alertInfo ? '<div class="deadline-badge '+alertInfo.color+'" style="margin-top:6px;">'+alertInfo.text+'</div>' : '';
  const newBadgeHtml = isNewEvent(l.created_at) ? '<span class="new-badge">NEW</span>' : '';
 
- openM((safe(l.image_url)?'<img class="big" src="'+safe(l.image_url)+'" alt="">':'')+'<h3 style="font-size:22px">'+esc(l.title)+newBadgeHtml+'</h3>'
+ openM((safe(l.image_url)?'<img class="big" src="'+safe(l.image_url)+'" alt="">':'')+'<h3 style="font-size:22px">'+newBadgeHtml+esc(l.title)+'</h3>'
  +(l.venue?'<p class="mut">📍 '+(safe(l.map_url)?'<a href="'+safe(l.map_url)+'" target="_blank" rel="noopener">'+esc(l.venue)+'</a>':esc(l.venue))+'</p>':'')
  +'<div class="sec" style="background:var(--pk2)"><h4>イベント情報</h4><p>開催日: <b>'+fd(l.live_date)+'</b></p><p>OPEN '+esc(l.open_time||'—')+' / START '+esc(l.start_time||'—')+'</p><p>ジャンル: '+(l.genre==='comedy'?'お笑い':'音楽')+' / 形式: '+esc(l.format||'—')+'</p></div>'
  +'<div class="sec" style="background:var(--vi2)"><h4>チケット情報</h4><p>種別: '+esc(l.ticket_type||'—')+'</p><p>申込受付: '+fdt(l.apply_start)+' 〜 '+fdt(l.apply_end)+'</p>'+deadlineBadgeHtml+'<p style="margin-top:6px;">当落発表: '+fd(l.result_date)+'</p><p>発券開始: '+fd(l.issue_date)+'</p></div>'
@@ -636,14 +635,14 @@ function numView(){
   const isSwiped=activeSwipeId===x.id;
   const past=isPastDate(x.live_date);
   return '<div class="swipe-wrap'+(hd?' is-hid':'')+'">'
-   +'<div class="swipe-action" ontouchend="setHid(\''+x.id+'\','+!hd+');event.stopPropagation()" onclick="setHid(\''+x.id+'\','+!hd+')">'+(hd?'表示':'非表示')+'</div>'
-   +'<div class="card num'+(hd?' hid':'')+(past?' past':'')+(isSwiped?' swiped':'')+'" ontouchstart="touchStart(event,\''+x.id+'\')" ontouchmove="touchMove(event,\''+x.id+'\')" ontouchend="swipe(event,\''+x.id+'\')">'
+   +'<div class="swipe-action" onclick="setHid(\''+x.id+'\','+!hd+');event.stopPropagation()">'+(hd?'表示':'非表示')+'</div>'
+   +'<div class="card num'+(hd?' hid':'')+(past?' past':'')+(isSwiped?' swiped':'')+'" ontouchstart="touchStart(event)" ontouchmove="touchMove(event,\''+x.id+'\')" ontouchend="swipe(event,\''+x.id+'\')">'
    +'<div class="grow"><b style="color:var(--pk)">'+fd(x.live_date)+'</b><h3 style="font-size:17px">'+esc(x.title)+'</h3><p class="mut">📍 '+esc(x.venue||'会場未定')+'</p></div>'
    +'<div class="nb" ontouchend="handleNumBoxTap(event,\''+x.id+'\')" onclick="handleNumBoxTap(event,\''+x.id+'\')"><small>整理番号 / 座席</small><b>'+esc(n.number||'—')+'</b></div>'
    +'</div></div>';
  }).join('');
 }
-function touchStart(e,id){
+function touchStart(e){
  tx=e.touches[0].clientX;
  isMoved=false;
  currentTouchTarget=e.currentTarget;
