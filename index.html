@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>イベントカレンダー</title>
+<title>粗品カレンダー</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>
 :root{--ink:#1f1633;--mut:#7b7391;--pk:#d6458f;--pk2:#fbeef5;--vi:#6d3fd1;--vi2:#f4f0ff;--bg:#faf8fc;--line:#ece6f5;--gr:#f6f5f8}
@@ -196,20 +196,17 @@ function getUnreadInfoCount(){
  return idx === -1 ? announcements.length : idx;
 }
 
-// 申込締切の残り日数アラート判定
+// 申込締切アラート判定（日付基準）
 function getDeadlineAlert(applyEnd){
  if(!applyEnd)return null;
  const now=new Date();
  const end=new Date(applyEnd);
- const diffHours=(end-now)/(1000*60*60);
- if(diffHours<0 || diffHours>72)return null; // 3日(72時間)以内のみ対象
- 
- const days=Math.ceil(diffHours/24);
- if(days<=1){
-  return {text:'⚠️ 申込締切まで 残り1日', color:'red'};
- }else{
-  return {text:`⚠️ 申込締切まで 残り${days}日`, color:'yellow'};
- }
+ if(end<now)return null; // 締切を過ぎたら表示しない
+ const d0=x=>new Date(x.getFullYear(),x.getMonth(),x.getDate());
+ const diffDays=Math.round((d0(end)-d0(now))/86400000);
+ if(diffDays>3)return null; // 3日前から表示
+ if(diffDays===0)return {text:'⚠️ 申込締切は 本日まで', color:'red'};
+ return {text:'⚠️ 申込締切 '+diffDays+'日前', color:'yellow'};
 }
 
 // 初回起動時のポップアップチェック（お知らせ ＆ 締切アラート）
