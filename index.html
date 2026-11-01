@@ -634,7 +634,7 @@ function numView(){
   return '<div class="swipe-wrap'+(hd?' is-hid':'')+'">'
    +'<div class="swipe-action" onclick="setHid(\''+x.id+'\','+!hd+');event.stopPropagation()">'+(hd?'表示':'非表示')+'</div>'
    +'<div class="card num'+(hd?' hid':'')+(past?' past':'')+(isSwiped?' swiped':'')+'" ontouchstart="touchStart(event)" ontouchmove="touchMove(event,\''+x.id+'\')" ontouchend="swipe(event,\''+x.id+'\')">'
-   +'<div class="grow"><b style="color:var(--pk)">'+fd(x.live_date)+'</b><h3 style="font-size:17px">'+esc(x.title)+'</h3><p class="mut">📍 '+esc(x.venue||'会場未定')+'</p></div>'
+   +'<div class="grow"><b style="color:var(--pk)">'+fd(x.live_date)+'</b><h3 style="font-size:17px">'+esc(x.title)+'</h3><p class="mut">📍 '+esc(x.venue||'会場未定')+'</p>'+((x.open_time||x.start_time)?'<p class="mut">OPEN '+esc((x.open_time||'—').slice(0,5))+' / START '+esc((x.start_time||'—').slice(0,5))+'</p>':'')+'</div>'
    +'<div class="nb" ontouchend="handleNumBoxTap(event,\''+x.id+'\')" onclick="handleNumBoxTap(event,\''+x.id+'\')"><small>整理番号 / 座席</small><b>'+esc(n.number||'—')+'</b></div>'
    +'</div></div>';
  }).join('');
