@@ -11,6 +11,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="https://raw.githubusercontent.com/soshinaMF/live_calendar/refs/heads/main/IMG_8088.jpeg">
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 :root{--ink:#1f1633;--mut:#7b7391;--pk:#d6458f;--pk2:#fbeef5;--vi:#6d3fd1;--vi2:#f4f0ff;--bg:#faf8fc;--line:#ece6f5;--gr:#f6f5f8}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -155,6 +156,11 @@ label{display:block;font-size:12px;color:var(--mut);margin:12px 0 4px}
 .info-item:last-child{border-bottom:none}
 .info-date{font-size:13px;font-weight:700;color:var(--mut);margin-bottom:4px}
 .info-body{font-size:14px;color:var(--ink);white-space:pre-wrap;line-height:1.6}
+
+/* お知らせ削除ボタン・チェックボックス */
+.info-item{position:relative}
+.info-del{position:absolute;top:8px;right:0;font-size:22px;color:var(--mut);padding:4px 8px;line-height:1}
+.tk{width:20px;height:20px;padding:0;flex:none}
 </style>
 </head>
 <body>
@@ -408,6 +414,7 @@ function render(){
 
 // info modal（お知らせ一覧）
 function openInfoModal(){
+ const host = prof && prof.is_host;
  // 開いた瞬間に最新のお知らせを既読として登録しバッジを消す
  if(announcements.length > 0){
   localStorage.setItem('koyake_last_seen_info_id', announcements[0].id);
@@ -423,6 +430,7 @@ function openInfoModal(){
    const d = new Date(a.created_at);
    const dateStr = d.getFullYear() + '.' + p2(d.getMonth()+1) + '.' + p2(d.getDate());
    return '<div class="info-item">'
+        + (host?'<button class="info-del" aria-label="削除" onclick="delAnnouncement(\''+a.id+'\')">&times;</button>':'')
         + '<div class="info-date">' + dateStr + '</div>'
         + '<div class="info-body">' + link(a.body) + '</div>'
         + '</div>';
@@ -430,6 +438,15 @@ function openInfoModal(){
  }
  html += '<button class="btn" style="margin-top:16px;" onclick="closeM()">閉じる</button>';
  openM(html);
+}
+
+// お知らせ削除（ホストのみ）
+async function delAnnouncement(id){
+ if(!confirm('このお知らせを削除します。よろしいですか？'))return;
+ const r=await sb.from('announcements').delete().eq('id',id).select();
+ if(r.error)return toast('失敗: '+r.error.message);
+ if(!r.data.length)return toast('削除できませんでした（権限を確認）');
+ await load();openInfoModal();
 }
 
 // 管理者用のお知らせ作成フォーム
@@ -640,7 +657,7 @@ function numView(){
    +'<div class="swipe-action" onclick="setHid(\''+x.id+'\','+!hd+');event.stopPropagation()">'+(hd?'表示':'非表示')+'</div>'
    +'<div class="card num'+(hd?' hid':'')+(past?' past':'')+(isSwiped?' swiped':'')+'" ontouchstart="touchStart(event)" ontouchmove="touchMove(event,\''+x.id+'\')" ontouchend="swipe(event,\''+x.id+'\')">'
    +'<div class="grow"><b style="color:var(--pk)">'+fd(x.live_date)+'</b><h3 style="font-size:17px">'+esc(x.title)+'</h3><p class="mut">📍 '+esc(x.venue||'会場未定')+'</p>'+((x.open_time||x.start_time)?'<p class="mut">OPEN '+esc((x.open_time||'—').slice(0,5))+' / START '+esc((x.start_time||'—').slice(0,5))+'</p>':'')+'</div>'
-   +'<div class="nb" ontouchend="handleNumBoxTap(event,\''+x.id+'\')" onclick="handleNumBoxTap(event,\''+x.id+'\')"><small>整理番号 / 座席</small><b>'+esc(n.number||'—')+'</b></div>'
+   +'<div class="nb" ontouchend="handleNumBoxTap(event,\''+x.id+'\')" onclick="handleNumBoxTap(event,\''+x.id+'\')"><small>整理番号 / 座席</small><b>'+esc(n.number||'—')+'</b>'+(n.ticket_kind?'<small style="margin-top:2px;font-weight:700">'+(n.ticket_kind==='paper'?'紙チケット':'電子チケット')+'</small>':'')+'</div>'
    +'</div></div>';
  }).join('');
 }
@@ -692,12 +709,16 @@ async function setHid(id,v){
 function numM(id){
  if(activeSwipeId){activeSwipeId=null;render();return;}
  const l=lives.find(x=>x.id===id),n=nums[id]||{};
+ const ck=(k,lab,on)=>'<label style="display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink);margin:0"><input id="tk_'+k+'" class="tk" type="checkbox" onchange="tkSel(\''+k+'\')"'+(on?' checked':'')+'>'+lab+'</label>';
  openM('<h3>'+esc(l.title)+'</h3><p class="mut">'+fd(l.live_date)+' / '+esc(l.venue||'')+'</p><label>整理番号 / 座席（あなただけに表示されます）</label><input id="nv" value="'+esc(n.number||'')+'" inputmode="text">'
+ +'<div style="display:flex;gap:20px;margin-top:14px">'+ck('p','紙チケット',n.ticket_kind==='paper')+ck('d','電子チケット',n.ticket_kind==='digital')+'</div>'
  +'<button class="btn p" onclick="saveNum(\''+id+'\')">保存する</button><button class="btn" onclick="closeM()">キャンセル</button>');
 }
+function tkSel(k){if($('#tk_'+k).checked)$('#tk_'+(k==='p'?'d':'p')).checked=false}
 async function saveNum(id){
  const v=$('#nv').value.trim()||null;
- const r=await sb.from('my_numbers').upsert({live_id:id,user_id:me.id,number:v});
+ const tk=$('#tk_p').checked?'paper':($('#tk_d').checked?'digital':null);
+ const r=await sb.from('my_numbers').upsert({live_id:id,user_id:me.id,number:v,ticket_kind:tk});
  if(r.error)return toast('失敗: '+r.error.message);
  closeM();load();
 }
@@ -710,8 +731,56 @@ function myPage(){
  +'<button class="btn" onclick="saveEmail()">メールアドレスを変更</button>'
  +'<label>新しいパスワード（6文字以上）</label><input id="np" type="password" autocomplete="new-password">'
  +'<button class="btn" onclick="savePw()">パスワードを変更</button>'
+ +'<label>整理番号リストをPDFで保存</label><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><button class="btn" onclick="pdfM(\'live\')">音楽</button><button class="btn" onclick="pdfM(\'comedy\')">お笑い</button><button class="btn" onclick="pdfM(\'koyake\')">こやけ</button></div>'
  +'<button class="btn d" onclick="closeM();sb.auth.signOut()">ログアウト</button><button class="btn" onclick="closeM()">閉じる</button>');
 }
+
+// PDF保存
+const PDF_GENRES={live:'音楽',comedy:'お笑い',koyake:'こやけ'};
+function pdfM(g){
+ openM('<h3>PDFに保存（'+PDF_GENRES[g]+'）</h3>'
+ +'<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin-top:16px"><input id="pdf_all" class="tk" type="checkbox">整理番号が未記入のものも含める</label>'
+ +'<p class="mut">チェックなし：整理番号を記入したものだけ</p>'
+ +'<button class="btn p" onclick="makePdf(\''+g+'\')">PDFを保存</button><button class="btn" onclick="closeM()">キャンセル</button>');
+}
+function makePdf(g){
+ if(!window.jspdf)return toast('PDF機能を読み込めませんでした。通信を確認してください');
+ const all=$('#pdf_all').checked;
+ const rows=lives.filter(x=>g==='koyake'||(x.genre||'live')===g)
+  .filter(x=>!(nums[x.id]&&nums[x.id].hidden))
+  .filter(x=>all||(nums[x.id]&&nums[x.id].number))
+  .sort(compareDateTime)
+  .map(x=>{
+   const d=x.live_date?new Date(x.live_date+'T00:00:00'):null;
+   const ds=d?d.getFullYear()+'/'+p2(d.getMonth()+1)+'/'+p2(d.getDate())+'('+'日月火水木金土'[d.getDay()]+')':'日付未定';
+   const no=nums[x.id]&&nums[x.id].number;
+   return [ds,x.title||'',x.venue||'—'].concat(no?[no]:[]).join(' ');
+  });
+ if(!rows.length)return toast('該当するイベントがありません');
+ const W=1240,H=1754,M=80;
+ const font=s=>s+'px "Hiragino Sans","Noto Sans JP",sans-serif';
+ const c=document.createElement('canvas');c.width=W;c.height=H;
+ const ctx=c.getContext('2d');
+ let fs=30;ctx.font=font(fs);
+ const maxW=Math.max(...rows.map(r=>ctx.measureText(r).width));
+ if(maxW>W-2*M)fs=Math.max(12,Math.floor(fs*(W-2*M)/maxW));
+ const lh=Math.round(fs*1.7),per=Math.floor((H-2*M)/lh);
+ const doc=new window.jspdf.jsPDF({unit:'mm',format:'a4'});
+ for(let p=0;p*per<rows.length;p++){
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#000';ctx.font=font(fs);ctx.textBaseline='top';
+  rows.slice(p*per,(p+1)*per).forEach((r,i)=>ctx.fillText(r,M,M+i*lh));
+  if(p)doc.addPage();
+  doc.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297);
+ }
+ const name='seiri_'+g+'_'+getTodayStr()+'.pdf';
+ const file=new File([doc.output('blob')],name,{type:'application/pdf'});
+ if(navigator.canShare&&navigator.canShare({files:[file]})){
+  navigator.share({files:[file]}).catch(()=>{});
+ }else doc.save(name);
+ closeM();
+}
+
 function resizeImg(file){
  return new Promise((res,rej)=>{
   const img=new Image(),reader=new FileReader();
