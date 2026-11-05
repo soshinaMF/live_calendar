@@ -737,8 +737,12 @@ function myPage(){
 
 // PDF保存
 const PDF_GENRES={live:'音楽',comedy:'お笑い',koyake:'こやけ'};
+const PDF_PREFIX={live:'music',comedy:'fany',koyake:'mix'};
 function pdfM(g){
+ const years=Array.from(new Set(lives.map(x=>x.live_date?x.live_date.slice(0,4):null).filter(Boolean))).sort().reverse();
+ const opts='<option value="ALL">全年度</option>'+years.map(y=>'<option value="'+y+'"'+(selYear===y?' selected':'')+'>'+y+'年</option>').join('');
  openM('<h3>PDFに保存（'+PDF_GENRES[g]+'）</h3>'
+ +'<label>年度</label><select id="pdf_y">'+opts+'</select>'
  +'<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);margin-top:16px"><input id="pdf_all" class="tk" type="checkbox">整理番号が未記入のものも含める</label>'
  +'<p class="mut">チェックなし：整理番号を記入したものだけ</p>'
  +'<button class="btn p" onclick="makePdf(\''+g+'\')">PDFを保存</button><button class="btn" onclick="closeM()">キャンセル</button>');
@@ -746,7 +750,9 @@ function pdfM(g){
 function makePdf(g){
  if(!window.jspdf)return toast('PDF機能を読み込めませんでした。通信を確認してください');
  const all=$('#pdf_all').checked;
+ const yr=$('#pdf_y').value;
  const rows=lives.filter(x=>g==='koyake'||(x.genre||'live')===g)
+  .filter(x=>yr==='ALL'||(x.live_date&&x.live_date.startsWith(yr)))
   .filter(x=>!(nums[x.id]&&nums[x.id].hidden))
   .filter(x=>all||(nums[x.id]&&nums[x.id].number))
   .sort(compareDateTime)
@@ -773,7 +779,7 @@ function makePdf(g){
   if(p)doc.addPage();
   doc.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',0,0,210,297);
  }
- const name='seiri_'+g+'_'+getTodayStr()+'.pdf';
+ const name='soshina_'+PDF_PREFIX[g]+'_'+(yr==='ALL'?'all':yr)+'.pdf';
  const file=new File([doc.output('blob')],name,{type:'application/pdf'});
  if(navigator.canShare&&navigator.canShare({files:[file]})){
   navigator.share({files:[file]}).catch(()=>{});
